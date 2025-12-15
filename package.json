@@ -1,13 +1,13 @@
 {
   "name": "godot-signaling-server",
   "version": "1.0.0",
-  "description": "Signaling server for Godot WebRTC",
+  "description": "Signaling server for Godot TCP",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "ws": "^8.16.0" 
+    // تم إزالة "ws" - نعتمد على وحدات Node.js المدمجة (مثل net)
   },
   "engines": {
     "node": ">=18.0.0"
