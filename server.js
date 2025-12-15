@@ -1,13 +1,12 @@
 // server.js - Node.js TCP Signaling Server
 const net = require('net');
 
-// يجب أن نستخدم المنفذ الافتراضي الذي يقدمه Render
 const PORT = process.env.PORT || 8080; 
-const HOST = '0.0.0.0'; // الاستماع على جميع الواجهات
+const HOST = '0.0.0.0'; 
 
 const rooms = {};
 
-// دالة لضمان إرسال الرسالة كسطر جديد (Delimiter)
+// دالة إرسال البيانات (مع إضافة فاصل السطر الجديد \n)
 function sendMessage(client, data) {
     if (client && client.writable) {
         client.write(JSON.stringify(data) + '\n');
@@ -17,19 +16,16 @@ function sendMessage(client, data) {
 const server = net.createServer((socket) => {
     socket.setEncoding('utf8');
     
-    // متغير مؤقت لتخزين الأجزاء غير المكتملة من الرسالة
     let buffer = '';
 
     console.log(`Client connected from: ${socket.remoteAddress}:${socket.remotePort}`);
 
     socket.on('data', (data) => {
-        // إضافة البيانات الجديدة إلى المخزن المؤقت
         buffer += data;
         
-        // معالجة المخزن المؤقت بناءً على فاصل السطر الجديد (\n)
         let messages = buffer.split('\n');
         
-        // آخر جزء قد يكون غير مكتمل، نحتفظ به في المخزن المؤقت
+        // الجزء الأخير قد يكون غير مكتمل، نحفظه
         buffer = messages.pop();
         
         messages.forEach(message => {
@@ -58,7 +54,6 @@ const server = net.createServer((socket) => {
                         socket.godot_id = player_id;
                         socket.is_host = false;
                         
-                        // إرسال رسالة الانضمام إلى المضيف (Host)
                         sendMessage(room.host, {
                             type: 'new_player_joined',
                             player_id: player_id, 
@@ -74,7 +69,6 @@ const server = net.createServer((socket) => {
                     if (room) {
                         let targetPlayer = room.players.get(peer_id);
                         if (targetPlayer) {
-                            // إعادة توجيه رسالة العرض/الإجابة/المرشح
                             sendMessage(targetPlayer.socket, {
                                 type: data.type,
                                 peer_id: socket.godot_id, 
@@ -93,7 +87,7 @@ const server = net.createServer((socket) => {
         if (socket.code && rooms[socket.code]) {
             const room = rooms[socket.code];
             if (socket.is_host) { 
-                // إغلاق الغرفة إذا كان المغادر هو المضيف
+                // إغلاق الغرفة
                 room.players.forEach(p => {
                     if (p.socket !== socket) {
                          sendMessage(p.socket, { type: 'room_closed' });
@@ -102,13 +96,14 @@ const server = net.createServer((socket) => {
                 delete rooms[socket.code];
                 console.log(`Room closed: ${socket.code}`);
             } else if (socket.godot_id) {
-                // إزالة اللاعب العادي
+                // إزالة اللاعب
                 room.players.delete(socket.godot_id);
-                // إبلاغ المضيف
-                sendMessage(room.host, {
-                    type: 'player_disconnected',
-                    player_id: socket.godot_id
-                });
+                if (room.host && room.host.writable) {
+                     sendMessage(room.host, {
+                        type: 'player_disconnected',
+                        player_id: socket.godot_id
+                    });
+                }
             }
         }
     });
